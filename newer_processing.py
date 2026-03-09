@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn import metrics, model_selection, tree
 
 
-df = pd.read_csv('forestfires.csv')
+df = pd.read_csv('datasets/forestfires.csv')
 
 month_order = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
 day_order = ["mon","tue","wed","thu","fri","sat","sun"]
@@ -13,7 +13,7 @@ day_order = ["mon","tue","wed","thu","fri","sat","sun"]
 df["month"] = pd.Categorical(df["month"], categories=month_order, ordered=True)
 df["day"] = pd.Categorical(df["day"], categories=day_order, ordered=True)
 
-input_col_names = ['temp', 'RH', 'wind']
+input_col_names = ['temp', 'RH', 'wind', 'rain']
 data = {}
 for group, group_data in df.groupby(by=['X', 'Y', 'month']):
     data[group] = group_data[input_col_names].mean()
@@ -43,22 +43,6 @@ for (x,y,mon) in data:
 
 output_col_names = ['x', 'y', 'mon'] + [f'target_{col}' for col in input_col_names] + [f'prev_{col}' for col in input_col_names] + [f'prev_avg_neighbor_{col}' for col in input_col_names]
 output_df = pd.DataFrame(output_data, columns=output_col_names)
-print(output_df)
-pdb.set_trace()
+print(output_df.columns)
 
-#scatter to show that the grid is not uniform
-plt.scatter(df["Y"], df["X"])
-plt.show()
-            
-
-
-'''Input feature 
-- Precipitation and temp on the previous day
-- Precipitation 
-
-cur_temp, cur_rain, prev_temp, prev_rain, pre_neighbor_temp, prev_neighbor_rain, wind??
-
-Loop over every row of the go data frame, and then make selections  '''
-
-
-#models to try: descicion/forest tree, XGBoost...
+output_df.to_csv('datasets/forestfires_preprocessed.csv', index=False)
