@@ -1,9 +1,4 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import pdb
-from sklearn.linear_model import LinearRegression
-from sklearn import metrics, model_selection, tree
-
 
 df = pd.read_csv('datasets/forestfires.csv')
 
@@ -43,6 +38,7 @@ for (x,y,mon) in data:
 
 output_col_names = ['x', 'y', 'mon'] + [f'target_{col}' for col in input_col_names] + [f'prev_{col}' for col in input_col_names] + [f'prev_avg_neighbor_{col}' for col in input_col_names]
 output_df = pd.DataFrame(output_data, columns=output_col_names)
-print(output_df.columns)
 
-output_df.to_csv('datasets/forestfires_preprocessed.csv', index=False)
+#print(output_df.columns)
+
+#output_df.to_csv('datasets/forestfires_preprocessed.csv', index=False)
