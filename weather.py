@@ -195,6 +195,7 @@ class Block:
         # fire status, fire extinquishes after certain steps defined in Simulation class
         self.on_fire = on_fire
         self.fire_steps = 0
+        self.burned = True
 
     def get_flammability(self):
         # calculate a probability of being ignited
@@ -234,6 +235,8 @@ class Block:
         # fire or not as second
         if self.on_fire:
             return COLOR_FIRE
+        elif self.burned:
+            return (50, 50, 50)
         # get color for certain elevation range
         if self.elevation >= 10000:
             return (255, 255, 255)
@@ -433,6 +436,7 @@ class Simulation:
                     # fire goes out after certain number of frames or there is a heavy rain
                     if self.grid[i][j].fire_steps >= self.max_fire_steps or self.grid[i][j].rain >= 3:
                         self.grid[i][j].on_fire = False
+                        self.burned = True
                         self.grid[i][j].fire_steps = 0
         # count one frame passed
         self.step_count += 1
