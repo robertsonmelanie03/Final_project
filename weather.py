@@ -1,8 +1,8 @@
 import pygame
 import random
 import pandas as pd
-from sklearn import kernel_ridge, metrics, model_selection, tree
-from sklearn.linear_model import LinearRegression
+from sklearn import metrics, model_selection, tree
+from sklearn.ensemble import RandomForestRegressor
 import pdb
 
 data = pd.read_csv('datasets/forestfires_preprocessed.csv')
@@ -78,7 +78,7 @@ class WeatherModel:
         # pending
         X = data[input_columns].values
         Y = data[target_col].values
-        model = LinearRegression()
+        model = RandomForestRegressor()
         model.fit(X, Y)
         #print('training score =', model.score(train_X, train_Y))
         #print('testing score =', model.score(test_X, test_Y ))
