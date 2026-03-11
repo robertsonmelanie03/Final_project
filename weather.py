@@ -156,10 +156,10 @@ def generate_rivers(elevation, N, seed):
                 if 0 <= px < mapsize and 0 <= py < mapsize:
                     elevation[px, py] -= 40
                     river_mask[px, py] = True
-            end_x, end_y = int(round(points[-1][0])), int(round(points[-1][1]))
+            end_x, end_y = int(round(points[0][0])), int(round(points[0][1]))
             # draw lakes at the end of rivers
-            lake_radius_x = random.randint(5, 20)
-            lake_radius_y = random.randint(5, 20)
+            lake_radius_x = random.randint(3, 8)
+            lake_radius_y = random.randint(3, 8)
             for dx in range(-lake_radius_x, lake_radius_x+1):
                 for dy in range(-lake_radius_y, lake_radius_y+1):
                     if (dx/lake_radius_x)**2 + (dy/lake_radius_y)**2 <= 1:
@@ -195,7 +195,7 @@ class Block:
         # fire status, fire extinquishes after certain steps defined in Simulation class
         self.on_fire = on_fire
         self.fire_steps = 0
-        self.burned = True
+        self.burned = False
 
     def get_flammability(self):
         # calculate a probability of being ignited
@@ -204,8 +204,8 @@ class Block:
         rh_factor = max(0, (1 - self.rh / 100.0))
         wind_factor = min(self.wind / 20.0, 1.0)
         rain_factor = max(0, 1 - self.rain / 5.0)
-        # if it is too high or it is a river or lake, not flammable
-        if self.elevation >= 9000 or self.is_river or self.is_lake:
+        # if it is too high, or it is a river or lake, or already been burened, not flammable
+        if self.elevation >= 9000 or self.is_river or self.is_lake or self.burned:
             return 0.0
         # otherwise the lower the more likely to catch on fire
         elif self.elevation >= 7000:
@@ -218,13 +218,23 @@ class Block:
         # but no larger than 1.0 as it is a probability
         return min(1.0, flammability * 7)
 
-    def try_ignite(self, neighbor_flammability=None):
-        if self.rain >= 5:
+    def try_ignite(self, neighbor_block):
+        if self.rain >= 3 or self.burned or self.is_river or self.is_lake:
             return False
         # return True if ignition succeed
         base = self.get_flammability()
+        neighbor_flammability = neighbor_block.get_flammability()
         # calculate the probability ignite neighbors
         prob = base + (0.3 * neighbor_flammability if neighbor_flammability else 0)
+        elev_diff = neighbor_block.elevation - self.elevation
+        # times a factor of elevation diff that boost or reduce the prob
+        if elev_diff > 0:
+            # makes the spread harder if low to high
+            factor = max(0.2, 1.0 - elev_diff / 2000)
+        else:
+            # makes the spread easier if high to low
+            factor = min(2.0, 1.0 - elev_diff / 1000)
+            prob *= factor
         return random.random() < min(prob, 1.0)
 
     def get_color(self):
@@ -356,9 +366,24 @@ class Simulation:
         # use another 2D array to store updated blocks
         new_fire = [[b.on_fire for b in row] for row in self.grid]
         # update block information
-        # update previous information
         for i in range(self.height):
             for j in range(self.width):
+                # if it is a block next to a lake or river
+                # increase its rh
+                if self.grid[i][j].is_river or self.grid[i][j].is_lake:
+                    for di, dj in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
+                        ni, nj = i+di, j+dj
+                        if 0 <= ni < self.height and 0 <= nj < self.width:
+                            self.grid[ni][nj].rh = min(100, self.grid[ni][nj].rh + 2)
+                # if it is a block next to a fired block
+                # increase its temp and decrease its rh
+                elif self.grid[i][j].on_fire:
+                    for di, dj in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
+                        ni, nj = i+di, j+dj
+                        if 0 <= ni < self.height and 0 <= nj < self.width:
+                            self.grid[i][j].rh = max(0, min(100, self.grid[i][j].rh - 3))
+                            self.grid[i][j].temp = max(0, min(50, self.grid[i][j].temp + 2))
+                # update previous information
                 self.grid[i][j].prev_temp = self.grid[i][j].temp
                 self.grid[i][j].prev_rh = self.grid[i][j].rh
                 self.grid[i][j].prev_wind = self.grid[i][j].wind
@@ -410,13 +435,15 @@ class Simulation:
         for i in range(self.height):
             for j in range(self.width):
                 if self.grid[i][j].on_fire:
-                    for di, dj in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
+                    #for di, dj in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]:
+                    # let fire to spread in eight directions cause a bug that sometimes fire may go through a river
+                    for di, dj in [(-1,0), (0,-1), (0,1), (1,0)]:
                         ni, nj = i+di, j+dj
                         if 0 <= ni < self.height and 0 <= nj < self.width:
                             neighbor = self.grid[ni][nj]
                             if not neighbor.on_fire:
                                 # append the fire status to a 2D array that maps where the fired block is
-                                if neighbor.try_ignite(self.grid[i][j].get_flammability()):
+                                if neighbor.try_ignite(self.grid[i][j]):
                                     new_fire[ni][nj] = True
         # update the fire status for the mapped blocks afterwards
         # because if fire status is changed in the above loop, the newly ignited block may instantly begin to ignite others
@@ -428,15 +455,12 @@ class Simulation:
         for i in range(self.height):
             for j in range(self.width):
                  # maintain a counter for frames being on fire
-                 # increment to some weather attributes that can be influenced by fire
                  if self.grid[i][j].on_fire:
                     self.grid[i][j].fire_steps += 1
-                    self.grid[i][j].rh = max(0, min(100, self.grid[i][j].rh - 10))
-                    self.grid[i][j].temp = max(0, min(50, self.grid[i][j].temp + 2))
                     # fire goes out after certain number of frames or there is a heavy rain
                     if self.grid[i][j].fire_steps >= self.max_fire_steps or self.grid[i][j].rain >= 3:
                         self.grid[i][j].on_fire = False
-                        self.burned = True
+                        self.grid[i][j].burned = True
                         self.grid[i][j].fire_steps = 0
         # count one frame passed
         self.step_count += 1
@@ -467,7 +491,7 @@ class Simulation:
                         for block in row:
                             block.rain = min(10, block.rain + 1)
                             block.rh = min(100, block.rh + 5)
-                            if block.on_fire and block.rain >= 5:
+                            if block.on_fire and block.rain >= 3:
                                 block.on_fire = False
                                 block.fire_steps = 0
                 # temp up if press 2
