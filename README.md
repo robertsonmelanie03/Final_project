@@ -6,7 +6,8 @@ Our model takes input features such as temperature, wind, precipitation etc., an
 To run this module, make sure you pip install **hkb_diamondsquare**. 
 
 How to use:
-Run the program, go to the main() function if you want to change the seed or framerate
+Go to the program main.py, change the directory of forestfires_preprocessed.csv, go to the main() function if you want to change the seed or framerate
+Run the program main.py
 Start a fire by left click a block
 Put out a fire by right click a block
 Start a rain by press 1, press multiple times to make the rain heavy enough to put out all the fire
